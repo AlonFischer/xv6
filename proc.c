@@ -26,6 +26,11 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
+static inline void
+hlt() {
+    asm volatile ("hlt" : : :);
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -257,17 +262,25 @@ wait(void)
 void
 scheduler(void)
 {
+  int halt;
   struct proc *p;
 
-  for(;;){
+  for(halt=0;;){
     // Enable interrupts on this processor.
     sti();
+
+    if (halt > 0) {
+        hlt();
+    }
+    halt = 1;
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+
+      halt = 0;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -455,5 +468,3 @@ procdump(void)
     cprintf("\n");
   }
 }
-
-
