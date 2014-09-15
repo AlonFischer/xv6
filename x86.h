@@ -117,6 +117,11 @@ sti(void)
   asm volatile("sti");
 }
 
+static inline void
+hlt(void) {
+    asm volatile ("hlt");
+}
+
 static inline uint
 xchg(volatile uint *addr, uint newval)
 {

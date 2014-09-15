@@ -26,10 +26,6 @@ pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
-static inline void
-hlt() {
-    asm volatile ("hlt" : : :);
-}
 
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
