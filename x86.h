@@ -119,7 +119,7 @@ sti(void)
 
 static inline void
 hlt(void) {
-    asm volatile ("hlt");
+    asm volatile ("sti; hlt" : : : "memory");
 }
 
 static inline uint
