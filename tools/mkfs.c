@@ -6,10 +6,10 @@
 #include <assert.h>
 
 #define stat xv6_stat  // avoid clash with host struct stat
-#include "types.h"
-#include "fs.h"
-#include "stat.h"
-#include "param.h"
+#include "include/types.h"
+#include "include/fs.h"
+#include "include/stat.h"
+#include "include/param.h"
 
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
 
@@ -118,8 +118,6 @@ main(int argc, char *argv[])
   iappend(rootino, &de, sizeof(de));
 
   for(i = 2; i < argc; i++){
-    assert(index(argv[i], '/') == 0);
-
     if((fd = open(argv[i], 0)) < 0){
       perror(argv[i]);
       exit(1);

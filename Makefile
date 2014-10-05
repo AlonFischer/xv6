@@ -1,32 +1,32 @@
 OBJS = \
-	bio.o\
-	console.o\
-	exec.o\
-	file.o\
-	fs.o\
-	ide.o\
-	ioapic.o\
-	kalloc.o\
-	kbd.o\
-	lapic.o\
-	log.o\
-	main.o\
-	mp.o\
-	picirq.o\
-	pipe.o\
-	proc.o\
-	spinlock.o\
-	string.o\
-	swtch.o\
-	syscall.o\
-	sysfile.o\
-	sysproc.o\
-	timer.o\
-	trapasm.o\
-	trap.o\
-	uart.o\
-	vectors.o\
-	vm.o\
+	sys/bio.o\
+	sys/console.o\
+	sys/exec.o\
+	sys/file.o\
+	sys/fs.o\
+	sys/ide.o\
+	sys/ioapic.o\
+	sys/kalloc.o\
+	sys/kbd.o\
+	sys/lapic.o\
+	sys/log.o\
+	sys/main.o\
+	sys/mp.o\
+	sys/picirq.o\
+	sys/pipe.o\
+	sys/proc.o\
+	sys/spinlock.o\
+	sys/string.o\
+	sys/swtch.o\
+	sys/syscall.o\
+	sys/sysfile.o\
+	sys/sysproc.o\
+	sys/timer.o\
+	sys/trapasm.o\
+	sys/trap.o\
+	sys/uart.o\
+	sys/vectors.o\
+	sys/vm.o\
 
 # Cross-compiling (e.g., on Mac OS X)
 #TOOLPREFIX = i386-jos-elf-
@@ -76,7 +76,8 @@ OBJDUMP = $(TOOLPREFIX)objdump
 #CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer
 CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -Wall -MD -ggdb -m32 -Werror -fno-omit-frame-pointer
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
-ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
+CFLAGS += -I. -Iinclude
+ASFLAGS = -m32 -gdwarf-2 -Wa,-divide -I. -Iinclude
 # FreeBSD ld wants ``elf_i386_fbsd''
 LDFLAGS += -m $(shell $(LD) -V | grep elf_i386 2>/dev/null)
 
@@ -90,30 +91,42 @@ xv6memfs.img: bootblock kernelmemfs
 	dd if=bootblock of=xv6memfs.img conv=notrunc
 	dd if=kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
 
-bootblock: bootasm.S bootmain.c
-	$(CC) $(CFLAGS) -fno-pic -O -nostdinc -I. -c bootmain.c
-	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c bootasm.S
+bootblock: sys/bootasm.S sys/bootmain.c
+	$(CC) $(CFLAGS) -fno-pic -O -nostdinc -c sys/bootmain.c
+	$(CC) $(CFLAGS) -fno-pic -nostdinc -c sys/bootasm.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o bootblock.o bootasm.o bootmain.o
 	$(OBJDUMP) -S bootblock.o > bootblock.asm
 	$(OBJCOPY) -S -O binary -j .text bootblock.o bootblock
-	./sign.pl bootblock
+	tools/sign.pl bootblock
 
-entryother: entryother.S
-	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c entryother.S
+entryother: sys/entryother.S
+	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c sys/entryother.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o bootblockother.o entryother.o
 	$(OBJCOPY) -S -O binary -j .text bootblockother.o entryother
 	$(OBJDUMP) -S bootblockother.o > entryother.asm
 
-initcode: initcode.S
-	$(CC) $(CFLAGS) -nostdinc -I. -c initcode.S
+initcode: sys/initcode.S
+	$(CC) $(CFLAGS) -nostdinc -I. -c sys/initcode.S
 	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o
 	$(OBJCOPY) -S -O binary initcode.out initcode
 	$(OBJDUMP) -S initcode.o > initcode.asm
 
-kernel: $(OBJS) entry.o entryother initcode kernel.ld
-	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
+kernel: $(OBJS) sys/entry.o entryother initcode sys/kernel.ld
+	$(LD) $(LDFLAGS) -T sys/kernel.ld -o kernel sys/entry.o $(OBJS) -b binary initcode entryother
 	$(OBJDUMP) -S kernel > kernel.asm
 	$(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym
+
+build/%.o: bin/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+build/%.o: lib/%.c
+	@mkdir -p build
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+build/%.o: lib/%.S
+	@mkdir -p build
+	$(CC) $(ASFLAGS) -c -o $@ $<
 
 # kernelmemfs is a copy of kernel that maintains the
 # disk image in memory instead of writing to a disk.
@@ -127,33 +140,30 @@ kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode fs.img
 	$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm
 	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
 
-tags: $(OBJS) entryother.S _init
-	etags *.S *.c
+sys/vectors.S: tools/vectors.pl
+	perl tools/vectors.pl > sys/vectors.S
 
-vectors.S: vectors.pl
-	perl vectors.pl > vectors.S
+ULIB = build/ulib.o build/usys.o build/printf.o build/umalloc.o
 
-ULIB = ulib.o usys.o printf.o umalloc.o
-
-_%: %.o $(ULIB)
+_%: build/%.o $(ULIB)
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
-	$(OBJDUMP) -S $@ > $*.asm
-	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
+	$(OBJDUMP) -S $@ > build/$*.asm
+	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > build/$*.sym
 
-_forktest: forktest.o $(ULIB)
+_forktest: build/forktest.o $(ULIB)
 	# forktest has less library code linked in - needs to be small
 	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
-	$(OBJDUMP) -S _forktest > forktest.asm
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest build/forktest.o build/ulib.o build/usys.o
+	$(OBJDUMP) -S _forktest > build/forktest.asm
 
-mkfs: mkfs.c fs.h
-	gcc -Werror -Wall -o mkfs mkfs.c
+mkfs: tools/mkfs.c include/fs.h
+	gcc -Werror -Wall -I. -o mkfs tools/mkfs.c
 
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
 # details:
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
-.PRECIOUS: %.o
+.PRECIOUS: build/%.o
 
 UPROGS=\
 	_cat\
@@ -176,23 +186,15 @@ fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
 
 -include *.d
+-include */*.d
 
 clean: 
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*.o *.d *.asm *.sym vectors.S bootblock entryother \
-	initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
-	.gdbinit \
-	$(UPROGS)
+	rm -rf build
+	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg *.o *.d *.asm *.sym \
+	sys/*.o sys/*.d sys/*.asm sys/*.sym sys/vectors.S \
+	bootblock entryother initcode initcode.out kernel xv6.img fs.img kernelmemfs mkfs \
+	.gdbinit $(UPROGS)
 
-# make a printout
-FILES = $(shell grep -v '^\#' runoff.list)
-PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
-
-xv6.pdf: $(PRINT)
-	./runoff
-	ls -l xv6.pdf
-
-print: xv6.pdf
 
 # run in emulators
 
