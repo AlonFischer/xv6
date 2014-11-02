@@ -180,6 +180,5 @@ log_write(struct buf *b)
   b->flags |= B_DIRTY; // XXX prevent eviction
 }
 
-//PAGEBREAK!
 // Blank page.
 
