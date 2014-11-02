@@ -11,8 +11,7 @@ professional kernel developer and am using this to learn more about hardware
 and operating systems. As such, I'm not making any guarantees about the
 correctness/design of the code.
 
-Changes from original
-=====================
+#### Changes from original
 
 - Source tree has been reorganized in the following manner:
   - Kernel source is in `sys`
