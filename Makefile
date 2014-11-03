@@ -28,12 +28,12 @@ OBJS = \
 	sys/vectors.o\
 	sys/vm.o\
 
-# Cross-compiling (e.g., on Mac OS X)
-#TOOLPREFIX = i386-jos-elf-
+OS := $(shell uname -s)
+ifeq ($(OS),Darwin)
 TOOLPREFIX = i386-elf-
-
-# Using native tools (e.g., on X86 Linux)
-#TOOLPREFIX = 
+else
+TOOLPREFIX = 
+endif
 
 # Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
