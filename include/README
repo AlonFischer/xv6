@@ -1,5 +1,5 @@
 TODO: Break out kernel only headers from this directory. It appears only the following are 
-useed in userspace:
+used in userspace:
 
   fcntl.h
   fs.h
