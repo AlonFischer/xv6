@@ -18,6 +18,7 @@ int link(char*, char*);
 int mkdir(char*);
 int chdir(char*);
 int dup(int);
+int dup2(int oldfd, int newfd);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);

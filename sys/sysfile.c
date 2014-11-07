@@ -54,13 +54,43 @@ sys_dup(void)
 {
   struct file *f;
   int fd;
-  
+
   if(argfd(0, 0, &f) < 0)
     return -1;
   if((fd=fdalloc(f)) < 0)
     return -1;
   filedup(f);
   return fd;
+}
+
+int
+sys_dup2(void)
+{
+  struct file *oldfile, *newfile;
+  int newfd;
+
+  if (argfd(0, 0, &oldfile) < 0) {
+    return -1;
+  }
+  if (argfd(1, &newfd, &newfile) < 0) {
+    return -1;
+  }
+
+  if (oldfile == newfile) {
+    return newfd;
+  }
+
+  // XXX(ajw) The `dup` implementation above doesnt do any locking. Assuming
+  // thats ok, why can we get away with not locking? Maybe because we dont have
+  // have threads?
+  if (newfile->ref > 0) {
+    fileclose(newfile);
+  }
+
+  proc->ofile[newfd] = oldfile;
+  filedup(oldfile);
+
+  return newfd;
 }
 
 int
@@ -92,7 +122,7 @@ sys_close(void)
 {
   int fd;
   struct file *f;
-  
+
   if(argfd(0, &fd, &f) < 0)
     return -1;
   proc->ofile[fd] = 0;
@@ -105,7 +135,7 @@ sys_fstat(void)
 {
   struct file *f;
   struct stat *st;
-  
+
   if(argfd(0, 0, &f) < 0 || argptr(1, (void*)&st, sizeof(*st)) < 0)
     return -1;
   return filestat(f, st);
@@ -340,7 +370,7 @@ sys_mknod(void)
   char *path;
   int len;
   int major, minor;
-  
+
   begin_trans();
   if((len=argstr(0, &path)) < 0 ||
      argint(1, &major) < 0 ||
