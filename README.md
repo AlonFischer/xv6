@@ -21,3 +21,5 @@ correctness/design of the code.
   - Documentation/handbook generation logic has been removed from the
     respository
 - CPU scheduler will halt the cpu(s) when idle
+- Adds the following system calls:
+  - `dup2` : This mimics the functionality of Posix dup2
