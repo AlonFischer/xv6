@@ -66,31 +66,40 @@ sys_dup(void)
 int
 sys_dup2(void)
 {
-  struct file *oldfile, *newfile;
-  int newfd;
+    struct file *oldfile, *newfile;
+    int newfd;
 
-  if (argfd(0, 0, &oldfile) < 0) {
-    return -1;
-  }
-  if (argfd(1, &newfd, &newfile) < 0) {
-    return -1;
-  }
+    if (argfd(0, 0, &oldfile) < 0) {
+        return -1;
+    }
+    if (argint(1, &newfd) < 0) {
+        return -1;
+    }
 
-  if (oldfile == newfile) {
+    if (proc->ofile[newfd] == 0) {
+        // The descriptor isnt in use yet so we can safely duplicate the
+        // file into a the new one
+        goto final;
+    } else if (argfd(1, &newfd, &newfile) < 0) {
+        return -1;
+    }
+
+    if (oldfile == newfile) {
+        return newfd;
+    }
+    // XXX(ajw) The `dup` implementation above doesnt do any locking. Assuming
+    // thats ok, why can we get away with not locking? Maybe because we dont have
+    // have threads?
+    if (newfile->ref > 0) {
+        fileclose(newfile);
+    }
+
+
+final:
+    proc->ofile[newfd] = oldfile;
+    filedup(oldfile);
+
     return newfd;
-  }
-
-  // XXX(ajw) The `dup` implementation above doesnt do any locking. Assuming
-  // thats ok, why can we get away with not locking? Maybe because we dont have
-  // have threads?
-  if (newfile->ref > 0) {
-    fileclose(newfile);
-  }
-
-  proc->ofile[newfd] = oldfile;
-  filedup(oldfile);
-
-  return newfd;
 }
 
 int
