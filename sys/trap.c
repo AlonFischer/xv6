@@ -8,6 +8,9 @@
 #include "traps.h"
 #include "spinlock.h"
 
+// Defined in vm.c
+extern int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
@@ -76,6 +79,24 @@ trap(struct trapframe *tf)
             cpu->id, tf->cs, tf->eip);
     lapiceoi();
     break;
+
+  case T_PGFLT:
+    cprintf("[debug] Page fault\n");
+
+    // rcr2() gives us the linear address of the pagefault
+    // XXX(ajw) Why the casting down to a char?
+    char *va = (char *)PGROUNDDOWN(rcr2());
+    char *mem = kalloc();
+
+    if (mem == 0) {
+      cprintf("page fault out of memory\n");
+      kfree((char *)p2v(*mem));
+      return;
+    }
+
+    memset(mem, 0, PGSIZE);
+    mappages(proc->pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U); 
+    return;
    
   default:
     if(proc == 0 || (tf->cs&3) == 0){
