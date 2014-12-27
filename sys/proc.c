@@ -103,6 +103,7 @@ userinit(void)
 
 // Grow current process's memory by n bytes.
 // Return 0 on success, -1 on failure.
+// XXX(ajw) This is currently dead code. Consider removing it
 int
 growproc(int n)
 {
