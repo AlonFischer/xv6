@@ -23,3 +23,4 @@ correctness/design of the code.
 - CPU scheduler will halt the cpu(s) when idle
 - Adds the following system calls:
   - `dup2` : This mimics the functionality of Posix dup2
+- Lazily allocates pages on page faults

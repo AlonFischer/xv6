@@ -90,6 +90,15 @@ trap(struct trapframe *tf)
 
     // Check for a user space page fault and if so, allocate the page
     if (tf->trapno == T_PGFLT) {
+        //XXX(ajw) From the homework page, we should try and handle the following challenges
+        //
+        //Challenges: Handle negative sbrk() arguments. Handle error cases such
+        //as sbrk() arguments that are too large. Verify that fork() and exit()
+        //work even if some sbrk()'d address have no memory allocated for them.
+        //Correctly handle faults on the invalid page below the stack. Make
+        //sure that kernel use of not-yet-allocated user addresses works -- for
+        //example, if a program passes an sbrk()-allocated address to read().
+
         // XXX(ajw) Why the casting down to a char?
         char *va = (char *)PGROUNDDOWN(rcr2()); //rcr2() gives us the linear address of the pagefault
         char *mem = kalloc();
