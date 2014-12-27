@@ -80,24 +80,6 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
-  case T_PGFLT:
-    cprintf("[debug] Page fault\n");
-
-    // rcr2() gives us the linear address of the pagefault
-    // XXX(ajw) Why the casting down to a char?
-    char *va = (char *)PGROUNDDOWN(rcr2());
-    char *mem = kalloc();
-
-    if (mem == 0) {
-      cprintf("page fault out of memory\n");
-      kfree((char *)p2v(*mem));
-      return;
-    }
-
-    memset(mem, 0, PGSIZE);
-    mappages(proc->pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U); 
-    return;
-   
   default:
     if(proc == 0 || (tf->cs&3) == 0){
       // In kernel, it must be our mistake.
@@ -105,7 +87,26 @@ trap(struct trapframe *tf)
               tf->trapno, cpu->id, tf->eip, rcr2());
       panic("trap");
     }
-    // In user space, assume process misbehaved.
+
+    // Check for a user space page fault and if so, allocate the page
+    if (tf->trapno == T_PGFLT) {
+        // XXX(ajw) Why the casting down to a char?
+        char *va = (char *)PGROUNDDOWN(rcr2()); //rcr2() gives us the linear address of the pagefault
+        char *mem = kalloc();
+
+        if (mem == 0) {
+          cprintf("page fault out of memory\n");
+          kfree((char *)p2v(*mem));
+          return;
+        }
+
+        memset(mem, 0, PGSIZE);
+        mappages(proc->pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U);
+        return;
+    }
+
+
+    // In user space and not a page fault, assume process misbehaved.
     cprintf("pid %d %s: trap %d err %d on cpu %d "
             "eip 0x%x addr 0x%x--kill proc\n",
             proc->pid, proc->name, tf->trapno, tf->err, cpu->id, tf->eip, 
