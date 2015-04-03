@@ -67,7 +67,7 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned.
-int
+static int
 mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
 {
   char *a, *last;
@@ -317,11 +317,22 @@ copyuvm(pde_t *pgdir, uint sz)
   if((d = setupkvm()) == 0)
     return 0;
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
-      panic("copyuvm: pte should exist");
-    if(!(*pte & PTE_P))
-      panic("copyuvm: page not present");
+    if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0) {
+        panic("copyuvm: pte should exist");
+    }
+
+    // XXX this returns zero when page isnt present
+    cprintf("PTE: 0x%x 0x%x\n", pte, *pte);
     pa = PTE_ADDR(*pte);
+    if(!(*pte & PTE_P)) {
+        //panic("copyuvm: page not present");
+        // We haven't lazily allocated these pages yet
+        if (lazy_allocate_page(pgdir, (char *)pa) < 0) {
+            cprintf("copyuvm: cannot allocate page\n");
+            goto bad;
+        }
+    }
+
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto bad;
@@ -374,4 +385,22 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
     va = va0 + PGSIZE;
   }
   return 0;
+}
+
+// Allocates virtual memory that has yet to fault and be lazily allocated
+int
+lazy_allocate_page(pde_t *pgdir, void *va) {
+    char *mem;
+    //cprintf("lazy allocate thing\n");
+
+    mem = kalloc();
+    if (mem == 0) {
+      //cprintf("lazy page allocate out of memory\n");
+      kfree((char *)p2v(*mem));
+      return -1;
+    }
+
+    memset(mem, 0, PGSIZE);
+    mappages(pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U);
+    return 0;
 }

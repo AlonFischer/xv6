@@ -131,9 +131,13 @@ fork(void)
   int i, pid;
   struct proc *np;
 
+  cprintf("[debug] Fork :: process size: %s - %d\n", proc->name, proc->sz);
+
   // Allocate process.
   if((np = allocproc()) == 0)
     return -1;
+
+  //cprintf("[debug] Process size: %s - %d\n", proc->name, proc->sz);
 
   // Copy process state from p.
   if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){

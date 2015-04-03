@@ -10,6 +10,7 @@
 
 // Defined in vm.c
 extern int mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+extern int lazy_allocate_page(pde_t *pgdir, void *va);
 
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
@@ -99,18 +100,13 @@ trap(struct trapframe *tf)
         //sure that kernel use of not-yet-allocated user addresses works -- for
         //example, if a program passes an sbrk()-allocated address to read().
 
+        //XX(ajw) How do we deal with the gaurd page between data and stack sections?
+
         // XXX(ajw) Why the casting down to a char?
         char *va = (char *)PGROUNDDOWN(rcr2()); //rcr2() gives us the linear address of the pagefault
-        char *mem = kalloc();
-
-        if (mem == 0) {
+        if (lazy_allocate_page(proc->pgdir, va) != 0) {
           cprintf("page fault out of memory\n");
-          kfree((char *)p2v(*mem));
-          return;
         }
-
-        memset(mem, 0, PGSIZE);
-        mappages(proc->pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U);
         return;
     }
 
