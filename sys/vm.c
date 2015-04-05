@@ -70,23 +70,27 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
 int
 mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
 {
-  char *a, *last;
-  pte_t *pte;
-  
-  a = (char*)PGROUNDDOWN((uint)va);
-  last = (char*)PGROUNDDOWN(((uint)va) + size - 1);
-  for(;;){
-    if((pte = walkpgdir(pgdir, a, 1)) == 0)
-      return -1;
-    if(*pte & PTE_P)
-      panic("remap");
-    *pte = pa | perm | PTE_P;
-    if(a == last)
-      break;
-    a += PGSIZE;
-    pa += PGSIZE;
-  }
-  return 0;
+    char *a, *last;
+    pte_t *pte;
+
+    a = (char *)PGROUNDDOWN((uint)va);
+    last = (char *)PGROUNDDOWN(((uint)va) + size - 1);
+    for (;;) {
+        if ((pte = walkpgdir(pgdir, a, 1)) == 0)
+            return -1;
+
+        if (*pte & PTE_P)
+            panic("remap");
+
+        //*pte = pa | perm | PTE_P;
+        *pte = pa | perm | PTE_P;
+        if (a == last)
+            break;
+
+        a += PGSIZE;
+        pa += PGSIZE;
+    }
+    return 0;
 }
 
 // There is one page table per process, plus one that's used when
@@ -118,10 +122,10 @@ static struct kmap {
   uint phys_end;
   int perm;
 } kmap[] = {
- { (void*)KERNBASE, 0,             EXTMEM,    PTE_W}, // I/O space
- { (void*)KERNLINK, V2P(KERNLINK), V2P(data), 0},     // kern text+rodata
- { (void*)data,     V2P(data),     PHYSTOP,   PTE_W}, // kern data+memory
- { (void*)DEVSPACE, DEVSPACE,      0,         PTE_W}, // more devices
+ { (void*)KERNBASE, 0,             EXTMEM,    PTE_P | PTE_W}, // I/O space
+ { (void*)KERNLINK, V2P(KERNLINK), V2P(data), 0},             // kern text+rodata
+ { (void*)data,     V2P(data),     PHYSTOP,   PTE_P | PTE_W}, // kern data+memory
+ { (void*)DEVSPACE, DEVSPACE,      0,         PTE_P | PTE_W}, // more devices
 };
 
 // Set up kernel part of a page table.
@@ -187,7 +191,7 @@ inituvm(pde_t *pgdir, char *init, uint sz)
     panic("inituvm: more than a page");
   mem = kalloc();
   memset(mem, 0, PGSIZE);
-  mappages(pgdir, 0, PGSIZE, v2p(mem), PTE_W|PTE_U);
+  mappages(pgdir, 0, PGSIZE, v2p(mem), PTE_P|PTE_W|PTE_U);
   memmove(mem, init, sz);
 }
 
@@ -237,7 +241,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       return 0;
     }
     memset(mem, 0, PGSIZE);
-    mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U);
+    mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_P|PTE_W|PTE_U);
   }
   return newsz;
 }

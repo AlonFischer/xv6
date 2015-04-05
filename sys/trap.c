@@ -110,6 +110,7 @@ trap(struct trapframe *tf)
         }
 
         memset(mem, 0, PGSIZE);
+        //TODO This should change
         mappages(proc->pgdir, va, PGSIZE, v2p(mem), PTE_W|PTE_U);
         return;
     }
